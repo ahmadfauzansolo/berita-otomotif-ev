@@ -1,19 +1,23 @@
+import os
+import requests
+import time
+import random
+import threading
+from dotenv import load_dotenv
 from flask import Flask
 import tweepy
-import os
-from dotenv import load_dotenv
 
+# Load .env
 load_dotenv()
 
-app = Flask(__name__)
-
-# Token dari .env
+# Twitter API Keys
 API_KEY = os.getenv("TWITTER_API_KEY")
 API_SECRET = os.getenv("TWITTER_API_SECRET")
 ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
 ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
-# Autentikasi Twitter
+# Twitter Auth
 twitter_client = tweepy.Client(
     consumer_key=API_KEY,
     consumer_secret=API_SECRET,
@@ -21,17 +25,97 @@ twitter_client = tweepy.Client(
     access_token_secret=ACCESS_SECRET
 )
 
-@app.route("/")
-def index():
-    return "✅ Twitter Bot Test Service is Running"
+# Keyword list
+keywords = [
+    "motor listrik", "kendaraan listrik", "EV", "mobil listrik", "baterai mobil",
+    "baterai motor", "konversi motor listrik", "charging station", "skutik listrik",
+    "subsidi motor listrik", "sepeda listrik", "BLDC", "dinamo motor",
+    "baterai lithium-ion", "Electric Vehicle", "baterai SLA", "Elon Musk"
+]
 
-@app.route("/test-tweet")
-def test_tweet():
+brands = [
+    "Gesits", "Viar", "Selis", "Volta", "Alva", "Polytron", "Smoot", "Rakata", "Yadea", "United",
+    "Honda EM1", "Yamaha E01", "NIU", "Treeletrik", "Uwinfly", "Italjet", "Sunra", "Evoseed",
+    "BF Goodrich", "Elvindo", "U-Winfly"
+]
+
+all_keywords = keywords + brands
+
+# Posted link file
+posted_links_file = "posted_links.txt"
+if not os.path.exists(posted_links_file):
+    open(posted_links_file, "w").close()
+
+def sudah_diposting(link):
+    with open(posted_links_file, "r") as f:
+        return link.strip() in f.read()
+
+def tandai_sudah_diposting(link):
+    with open(posted_links_file, "a") as f:
+        f.write(link.strip() + "\n")
+
+def is_relevant(title, content):
+    combined = (title or "") + " " + (content or "")
+    combined = combined.lower()
+    return any(kw.lower() in combined for kw in all_keywords)
+
+def ambil_berita(keyword):
     try:
-        tweet = twitter_client.create_tweet(text="✅ Test tweet from Render at /test-tweet")
-        return f"Berhasil: {tweet.data}"
+        url = (
+            f"https://newsdata.io/api/1/news?apikey={NEWS_API_KEY}"
+            f"&q={keyword}&language=id&country=id&category=technology,business"
+        )
+        response = requests.get(url)
+        data = response.json()
+        return data.get("results", [])
     except Exception as e:
-        return f"Gagal kirim tweet: {e}"
+        print("❌ Gagal ambil berita:", e)
+        return []
+
+def post_berita_ke_twitter():
+    random.shuffle(all_keywords)
+    for keyword in all_keywords:
+        berita_list = ambil_berita(keyword)
+        for berita in berita_list:
+            if isinstance(berita, dict):
+                title = berita.get("title", "")
+                content = berita.get("content", "") or berita.get("description", "")
+                link = berita.get("link", "")
+
+                if not (title and link):
+                    continue
+                if not is_relevant(title, content):
+                    continue
+                if sudah_diposting(link):
+                    continue
+
+                try:
+                    status = f"{title}\n{link}"
+                    if len(status) > 280:
+                        status = status[:277] + "..."
+                    twitter_client.create_tweet(text=status)
+                    print(f"✅ Berhasil posting: {title}")
+                    tandai_sudah_diposting(link)
+                    return
+                except Exception as e:
+                    print(f"❌ Gagal posting: {e}")
+
+# === Loop terpisah (thread) agar tidak mengganggu server ===
+def loop_otomatis():
+    while True:
+        print("🔄 Mengecek dan posting berita...")
+        post_berita_ke_twitter()
+        time.sleep(180)  # 3 menit
+
+threading.Thread(target=loop_otomatis, daemon=True).start()
+
+# === Web server tetap jalan agar Render tetap aktif ===
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "✅ Twitter Bot Pak Be Test Service is Running (Auto-Post Setiap 3 Menit)"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
