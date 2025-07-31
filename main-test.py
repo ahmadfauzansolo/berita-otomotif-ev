@@ -105,10 +105,11 @@ def loop_otomatis():
     while True:
         print("🔄 Mengecek dan posting berita...")
         post_berita_ke_twitter()
-        print("🕒 Menunggu 1,5 jam (90 menit)...")
-        for i in range(90):  # 90 menit = 1,5 jam
-            print(f"⏳ Menit ke-{i+1} dari 90")
-            time.sleep(60)
+        print("🕒 Menunggu 3 menit...")
+for i in range(3):  # 3 menit
+    print(f"⏳ Menit ke-{i+1} dari 3")
+    time.sleep(60)
+
 
 threading.Thread(target=loop_otomatis, daemon=True).start()
 
