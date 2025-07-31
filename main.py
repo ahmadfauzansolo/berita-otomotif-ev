@@ -1,112 +1,128 @@
-import os
-import time
+# --- Konfigurasi ---
 import requests
+import time
+import random
+import os
 import tweepy
-from flask import Flask
-from threading import Thread
+from keep_alive import keep_alive  # Agar Replit tetap hidup
+from dotenv import load_dotenv
 
-# === Konfigurasi API Keys ===
-TWITTER_API_KEY = os.getenv("TWITTER_API_KEY")
-TWITTER_API_SECRET = os.getenv("TWITTER_API_SECRET")
-TWITTER_ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
-TWITTER_ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
-NEWSDATA_API_KEY = os.getenv("NEWSDATA_API_KEY")
+load_dotenv()  # Memuat variabel dari .env
 
-# === Inisialisasi Flask ===
-app = Flask(__name__)
+# --- API Keys dari .env ---
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+API_KEY = os.getenv("TWITTER_API_KEY")
+API_SECRET = os.getenv("TWITTER_API_SECRET")
+ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
+ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
 
-@app.route("/")
-def home():
-    return "Bot is running!"
+# --- Setup Auth Twitter (API v2) ---
+twitter_client = tweepy.Client(
+    consumer_key=API_KEY,
+    consumer_secret=API_SECRET,
+    access_token=ACCESS_TOKEN,
+    access_token_secret=ACCESS_SECRET
+)
 
-@app.route("/test-tweet")
-def test_tweet():
-    tweet("🚀 Ini adalah tweet percobaan dari bot!")
-    return "Test tweet berhasil dikirim!"
-
-def run():
-    app.run(host="0.0.0.0", port=8080)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-# === Keyword Pencarian ===
+# --- Keyword Pencarian ---
 keywords = [
-    "motor listrik", "kendaraan listrik", "EV", "sepeda motor listrik", "motor ramah lingkungan",
-    "baterai motor", "motor listrik Indonesia", "motor listrik terbaru", "motor listrik murah",
-    "konversi motor listrik", "charging station", "kendaraan listrik roda dua", "motor listrik buatan lokal",
-    "subsidi motor listrik", "motor listrik tanpa suara", "motor listrik hemat", "motor listrik irit energi",
-    "spesifikasi motor listrik", "daya motor listrik", "pengisian baterai motor"
+    "motor listrik", "kendaraan listrik", "EV", "mobil listrik", "baterai mobil",
+    "baterai motor", "konversi motor listrik", "charging station", "skutik listrik",
+    "subsidi motor listrik", "sepeda listrik", "BLDC", "dinamo motor",
+    "baterai lithium-ion", "Electric Vehicle", "baterai SLA", "Elon Musk"
 ]
 
 brands = [
     "Gesits", "Viar", "Selis", "Volta", "Alva", "Polytron", "Smoot", "Rakata", "Yadea", "United",
     "Honda EM1", "Yamaha E01", "NIU", "Treeletrik", "Uwinfly", "Italjet", "Sunra", "Evoseed",
-    "BF Goodrich", "Elvindo"
+    "BF Goodrich", "Elvindo", "U-Winfly"
 ]
 
-# === Inisialisasi Twitter API ===
-auth = tweepy.OAuth1UserHandler(
-    TWITTER_API_KEY, TWITTER_API_SECRET,
-    TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET
-)
-twitter_api = tweepy.API(auth)
+all_keywords = keywords + brands
 
-# === Cek apakah berita sudah pernah diposting ===
-POSTED_FILE = "posted_links.txt"
+# --- File Penyimpan Link Yang Sudah Diposting ---
+posted_links_file = "posted_links.txt"
+if not os.path.exists(posted_links_file):
+    with open(posted_links_file, "w") as f:
+        pass
 
-def sudah_dipost(link):
-    if not os.path.exists(POSTED_FILE):
-        return False
-    with open(POSTED_FILE, "r") as f:
-        return link in f.read()
+def sudah_diposting(link):
+    with open(posted_links_file, "r") as f:
+        return link.strip() in f.read()
 
-def tandai_sudah_dipost(link):
-    with open(POSTED_FILE, "a") as f:
-        f.write(link + "\n")
+def tandai_sudah_diposting(link):
+    with open(posted_links_file, "a") as f:
+        f.write(link.strip() + "\n")
 
-# === Fungsi Posting ke Twitter ===
-def tweet(teks):
+# --- Fungsi Relevansi Berita ---
+def is_relevant(title, content):
+    title = (title or "").lower()
+    content = (content or "").lower()
+    return any(kw.lower() in title for kw in all_keywords) or any(kw.lower() in content for kw in all_keywords)
+
+# --- Ambil Berita dari NewsData.io ---
+def ambil_berita(keyword):
     try:
-        twitter_api.update_status(teks)
-        print("Tweet dipost:", teks)
-    except Exception as e:
-        print("Gagal posting tweet:", e)
-
-# === Cek dan Posting Berita ===
-def cek_berita():
-    url = f"https://newsdata.io/api/1/news?apikey={NEWSDATA_API_KEY}&language=id&country=id&category=technology,business"
-    try:
+        url = (
+            f"https://newsdata.io/api/1/news?apikey={NEWS_API_KEY}"
+            f"&q={keyword}&language=id&country=id&category=technology,business"
+        )
         response = requests.get(url)
         data = response.json()
 
-        for artikel in data.get("results", []):
-            title = artikel.get("title", "")
-            content = artikel.get("content", "") or ""
-            link = artikel.get("link", "")
+        print("=== Keyword:", keyword, "===")
+        print("Total Results:", data.get("totalResults"))
 
-            if not link or sudah_dipost(link):
-                continue
-
-            teks_lengkap = f"{title} {content}".lower()
-            if any(k.lower() in teks_lengkap for k in keywords + brands):
-                teks_tweet = f"{title}\n{link}"
-                tweet(teks_tweet)
-                tandai_sudah_dipost(link)
-                break  # Post hanya satu artikel setiap siklus
-
+        results = data.get("results")
+        if isinstance(results, list):
+            return results
+        else:
+            print("❌ Format results tidak sesuai:", results)
+            return []
     except Exception as e:
-        print("Gagal mengambil atau memproses berita:", e)
+        print("❌ Gagal ambil berita:", e)
+        return []
 
-# === Main Loop Bot ===
-def start_bot():
-    while True:
-        print("🔄 Memeriksa berita...")
-        cek_berita()
-        print("⏳ Menunggu 5 menit...")
-        time.sleep(5 * 60)
+# --- Posting Berita ke Twitter ---
+def post_berita_ke_twitter():
+    random.shuffle(all_keywords)
+    for keyword in all_keywords:
+        berita_list = ambil_berita(keyword)
+        for berita in berita_list:
+            if isinstance(berita, dict):
+                title = berita.get("title", "")
+                content = berita.get("content", "") or berita.get("description", "")
+                link = berita.get("link", "")
 
-# === Jalankan Semuanya ===
+                if not (title and link):
+                    print("Lewat: tidak lengkap")
+                    continue
+
+                # Filter relevansi
+                if not is_relevant(title, content):
+                    print("Lewat: tidak relevan")
+                    continue
+
+                if sudah_diposting(link):
+                    print("Lewat: sudah pernah")
+                    continue
+
+                try:
+                    status = f"{title}\n{link}"
+                    if len(status) > 280:
+                        status = status[:277] + "..."
+                    twitter_client.create_tweet(text=status)
+                    print(f"✅ Berhasil posting: {title}")
+                    tandai_sudah_diposting(link)
+                    return  # hanya satu posting per siklus
+                except Exception as e:
+                    print(f"❌ Gagal posting: {e}")
+            else:
+                print("Lewat: format data tidak sesuai")
+
+# --- Loop Otomatis ---
 keep_alive()
-start_bot()
+print("🔁 Bot aktif... Posting setiap 1.5 jam sekali")
+while True:
+    post_berita_ke_twitter()
+    time.sleep(5400)  # 1.5 jam
