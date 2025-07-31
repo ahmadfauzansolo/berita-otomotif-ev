@@ -13,8 +13,8 @@ load_dotenv()
 # Twitter API Keys
 API_KEY = os.getenv("TWITTER_API_KEY")
 API_SECRET = os.getenv("TWITTER_API_SECRET")
-ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
-ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
+ACCESS_SECRET = os.getenv("ACCESS_SECRET")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
 # Twitter Auth
@@ -100,21 +100,24 @@ def post_berita_ke_twitter():
                 except Exception as e:
                     print(f"❌ Gagal posting: {e}")
 
-# === Loop terpisah (thread) agar tidak mengganggu server ===
+# === Loop otomatis posting setiap 1,5 jam dengan potongan 1 menit ===
 def loop_otomatis():
     while True:
         print("🔄 Mengecek dan posting berita...")
         post_berita_ke_twitter()
-        time.sleep(180)  # 3 menit
+        print("🕒 Menunggu 1,5 jam (90 menit)...")
+        for i in range(90):  # 90 menit = 1,5 jam
+            print(f"⏳ Menit ke-{i+1} dari 90")
+            time.sleep(60)
 
 threading.Thread(target=loop_otomatis, daemon=True).start()
 
-# === Web server tetap jalan agar Render tetap aktif ===
+# === Web server untuk Render tetap aktif ===
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "✅ Twitter Bot Pak Be Test Service is Running (Auto-Post Setiap 3 Menit)"
+    return "✅ Twitter Bot Test Service is Running (Auto-post setiap 1,5 jam)"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
