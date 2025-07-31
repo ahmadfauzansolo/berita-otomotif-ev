@@ -63,7 +63,7 @@ def ambil_berita(keyword):
     try:
         url = (
             f"https://newsdata.io/api/1/news?apikey={NEWS_API_KEY}"
-            f"&q={keyword}&language=id&country=id&category=technology,business"
+            f"&q={keyword}&language=id&country=id"
         )
         response = requests.get(url)
         data = response.json()
@@ -111,10 +111,9 @@ def loop_otomatis():
         print("🔄 Mengecek dan posting berita...")
         post_berita_ke_twitter()
         print("🕒 Menunggu 3 menit...")
-for i in range(90):  # 90 menit
-    print(f"⏳ Menit ke-{i+1} dari 90")
-    time.sleep(60)
-
+        for i in range(90):  # 90 menit
+            print(f"⏳ Menit ke-{i+1} dari 90")
+            time.sleep(60)
 
 threading.Thread(target=loop_otomatis, daemon=True).start()
 
@@ -123,7 +122,54 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "✅ Twitter Bot Pak bNdotzz KLAYABAN Service is Running (Auto-post setiap 1,5 jam)"
+    return """
+    <html>
+        <head>
+            <title>Twitter Bot Status</title>
+            <style>
+                body {
+                    background-color: #f0f4f8;
+                    font-family: Arial, sans-serif;
+                    text-align: center;
+                    padding-top: 100px;
+                    color: #333;
+                }
+                .container {
+                    background: white;
+                    display: inline-block;
+                    padding: 30px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                }
+                h1 {
+                    color: #2c3e50;
+                }
+                p {
+                    font-size: 18px;
+                }
+                .emoji {
+                    font-size: 50px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="emoji">🤖⚡</div>
+                <h1>Twitter Bot: Pak bNdotzz KLAYABAN</h1>
+                <p>Status: <strong style="color:green;">Online & Berjalan</strong></p>
+                <p>Auto-post berita motor listrik setiap 1,5 jam</p>
+                <p>⏰ Terakhir update: <span id="waktu"></span></p>
+            </div>
+            <script>
+                const waktu = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
+                document.getElementById("waktu").innerText = waktu;
+            </script>
+        </body>
+    </html>
+    """
+@app.route("/status")
+def status():
+    return {"status": "online", "bot": "Pak bNdotzz", "interval": "1.5 jam"}
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
