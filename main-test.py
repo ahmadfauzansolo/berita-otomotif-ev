@@ -117,7 +117,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "✅ Twitter Bot Test Service is Running (Auto-post setiap 1,5 jam)"
+    return "✅ Twitter Bot Pak bNdotzz KLAYABAN Service is Running (Auto-post setiap 1,5 jam)"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
