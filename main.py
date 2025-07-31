@@ -111,8 +111,8 @@ def loop_otomatis():
         print("🔄 Mengecek dan posting berita...")
         post_berita_ke_twitter()
         print("🕒 Menunggu 3 menit...")
-for i in range(3):  # 3 menit
-    print(f"⏳ Menit ke-{i+1} dari 3")
+for i in range(90):  # 90 menit
+    print(f"⏳ Menit ke-{i+1} dari 90")
     time.sleep(60)
 
 
