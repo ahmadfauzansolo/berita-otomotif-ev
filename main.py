@@ -4,7 +4,7 @@ import time
 import random
 import threading
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, render_template_string
 import tweepy
 
 # Load .env
@@ -105,71 +105,42 @@ def post_berita_ke_twitter():
                 except Exception as e:
                     print(f"❌ Gagal posting: {e}")
 
-# === Loop otomatis posting setiap 1,5 jam dengan potongan 1 menit ===
+# === Loop otomatis posting setiap 90 menit ===
 def loop_otomatis():
     while True:
         print("🔄 Mengecek dan posting berita...")
         post_berita_ke_twitter()
-        print("🕒 Menunggu 3 menit...")
+        print("🕒 Menunggu 90 menit...")
         for i in range(90):  # 90 menit
             print(f"⏳ Menit ke-{i+1} dari 90")
             time.sleep(60)
 
 threading.Thread(target=loop_otomatis, daemon=True).start()
 
-# === Web server untuk Render tetap aktif ===
+# === Web server ===
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return """
-    <html>
+    return render_template_string("""
+        <html>
         <head>
             <title>Twitter Bot Status</title>
             <style>
-                body {
-                    background-color: #f0f4f8;
-                    font-family: Arial, sans-serif;
-                    text-align: center;
-                    padding-top: 100px;
-                    color: #333;
-                }
-                .container {
-                    background: white;
-                    display: inline-block;
-                    padding: 30px;
-                    border-radius: 12px;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                }
-                h1 {
-                    color: #2c3e50;
-                }
-                p {
-                    font-size: 18px;
-                }
-                .emoji {
-                    font-size: 50px;
-                }
+                body { font-family: sans-serif; background: #121212; color: #fff; text-align: center; padding-top: 50px; }
+                .card { background: #1f1f1f; border-radius: 10px; padding: 20px; display: inline-block; box-shadow: 0 0 10px #0f0; }
+                h1 { color: #0f0; }
             </style>
         </head>
         <body>
-            <div class="container">
-                <div class="emoji">🤖⚡</div>
-                <h1>Twitter Bot: Pak bNdotzz KLAYABAN</h1>
-                <p>Status: <strong style="color:green;">Online & Berjalan</strong></p>
-                <p>Auto-post berita motor listrik setiap 1,5 jam</p>
-                <p>⏰ Terakhir update: <span id="waktu"></span></p>
+            <div class="card">
+                <h1>✅ Bot KLAYABAN Aktif</h1>
+                <p>Twitter Bot Pak <b>bNdotzz</b> sedang berjalan.</p>
+                <p>Memposting berita otomotif listrik setiap 1,5 jam.</p>
             </div>
-            <script>
-                const waktu = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
-                document.getElementById("waktu").innerText = waktu;
-            </script>
         </body>
-    </html>
-    """
-@app.route("/status")
-def status():
-    return {"status": "online", "bot": "Pak bNdotzz", "interval": "1.5 jam"}
+        </html>
+    """)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
