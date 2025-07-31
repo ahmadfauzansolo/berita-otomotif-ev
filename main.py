@@ -11,7 +11,6 @@ load_dotenv()  # Memuat variabel dari .env
 
 # --- API Keys dari .env ---
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
-
 API_KEY = os.getenv("TWITTER_API_KEY")
 API_SECRET = os.getenv("TWITTER_API_SECRET")
 ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
@@ -27,17 +26,16 @@ twitter_client = tweepy.Client(
 
 # --- Keyword Pencarian ---
 keywords = [
-    "motor listrik", "kendaraan listrik", "EV", "sepeda motor listrik", "motor ramah lingkungan",
-    "baterai motor", "motor listrik Indonesia", "motor listrik terbaru", "motor listrik murah",
-    "konversi motor listrik", "charging station", "kendaraan listrik roda dua", "motor listrik buatan lokal",
-    "subsidi motor listrik", "motor listrik tanpa suara", "motor listrik hemat", "motor listrik irit energi",
-    "spesifikasi motor listrik", "daya motor listrik", "pengisian baterai motor"
+    "motor listrik", "kendaraan listrik", "EV", "mobil listrik", "baterai mobil",
+    "baterai motor", "konversi motor listrik", "charging station", "skutik listrik",
+    "subsidi motor listrik", "sepeda listrik", "BLDC", "dinamo motor",
+    "baterai lithium-ion", "Electric Vehicle", "baterai SLA", "Elon Musk"
 ]
 
 brands = [
     "Gesits", "Viar", "Selis", "Volta", "Alva", "Polytron", "Smoot", "Rakata", "Yadea", "United",
     "Honda EM1", "Yamaha E01", "NIU", "Treeletrik", "Uwinfly", "Italjet", "Sunra", "Evoseed",
-    "BF Goodrich", "Elvindo"
+    "BF Goodrich", "Elvindo", "U-Winfly"
 ]
 
 all_keywords = keywords + brands
@@ -56,10 +54,19 @@ def tandai_sudah_diposting(link):
     with open(posted_links_file, "a") as f:
         f.write(link.strip() + "\n")
 
+# --- Fungsi Relevansi Berita ---
+def is_relevant(title, content):
+    combined = (title or "") + " " + (content or "")
+    combined = combined.lower()
+    return any(kw.lower() in combined for kw in all_keywords)
+
 # --- Ambil Berita dari NewsData.io ---
 def ambil_berita(keyword):
     try:
-        url = f"https://newsdata.io/api/1/news?apikey={NEWS_API_KEY}&q={keyword}&language=id&country=id"
+        url = (
+            f"https://newsdata.io/api/1/news?apikey={NEWS_API_KEY}"
+            f"&q={keyword}&language=id&country=id&category=technology,business"
+        )
         response = requests.get(url)
         data = response.json()
 
@@ -83,21 +90,33 @@ def post_berita_ke_twitter():
         berita_list = ambil_berita(keyword)
         for berita in berita_list:
             if isinstance(berita, dict):
-                title = berita.get("title")
-                link = berita.get("link")
-                if title and link and not sudah_diposting(link):
-                    try:
-                        status = f"{title}\n{link}"
-                        if len(status) > 280:
-                            status = status[:277] + "..."
-                        twitter_client.create_tweet(text=status)
-                        print(f"✅ Berhasil posting: {title}")
-                        tandai_sudah_diposting(link)
-                        return  # hanya satu posting per siklus
-                    except Exception as e:
-                        print(f"❌ Gagal posting: {e}")
-                else:
-                    print("Lewat: sudah pernah atau tidak lengkap")
+                title = berita.get("title", "")
+                content = berita.get("content", "") or berita.get("description", "")
+                link = berita.get("link", "")
+
+                if not (title and link):
+                    print("Lewat: tidak lengkap")
+                    continue
+
+                # Filter relevansi
+                if not is_relevant(title, content):
+                    print("Lewat: tidak relevan")
+                    continue
+
+                if sudah_diposting(link):
+                    print("Lewat: sudah pernah")
+                    continue
+
+                try:
+                    status = f"{title}\n{link}"
+                    if len(status) > 280:
+                        status = status[:277] + "..."
+                    twitter_client.create_tweet(text=status)
+                    print(f"✅ Berhasil posting: {title}")
+                    tandai_sudah_diposting(link)
+                    return  # hanya satu posting per siklus
+                except Exception as e:
+                    print(f"❌ Gagal posting: {e}")
             else:
                 print("Lewat: format data tidak sesuai")
 
