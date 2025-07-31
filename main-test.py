@@ -75,6 +75,7 @@ def ambil_berita(keyword):
 def post_berita_ke_twitter():
     random.shuffle(all_keywords)
     for keyword in all_keywords:
+        print(f"🔎 Mencari berita untuk keyword: {keyword}")
         berita_list = ambil_berita(keyword)
         for berita in berita_list:
             if isinstance(berita, dict):
@@ -82,11 +83,15 @@ def post_berita_ke_twitter():
                 content = berita.get("content", "") or berita.get("description", "")
                 link = berita.get("link", "")
 
+                print(f"📰 Cek berita: {title}")
                 if not (title and link):
+                    print("⚠️ Lewat: Tidak ada judul atau link")
                     continue
                 if not is_relevant(title, content):
+                    print("⛔ Lewat: Tidak relevan")
                     continue
                 if sudah_diposting(link):
+                    print("⏭️ Lewat: Sudah pernah diposting")
                     continue
 
                 try:
@@ -100,7 +105,7 @@ def post_berita_ke_twitter():
                 except Exception as e:
                     print(f"❌ Gagal posting: {e}")
 
-# === Loop otomatis posting setiap 1,5 jam dengan potongan 1 menit ===
+            # === Loop otomatis posting setiap 1,5 jam dengan potongan 1 menit ===
 def loop_otomatis():
     while True:
         print("🔄 Mengecek dan posting berita...")
