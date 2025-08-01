@@ -43,7 +43,7 @@ def tandai_sudah_diposting(link):
 def is_relevant(title, summary):
     combined = (title or "") + " " + (summary or "")
     combined = combined.lower()
-    return any(kw.lower() in combined for kw in keywords)
+    return any(all(word in combined for word in kw.lower().split()) for kw in keywords)
 
 def ambil_berita_rss():
     berita_semua = []
