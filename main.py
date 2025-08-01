@@ -101,7 +101,7 @@ def post_berita_ke_twitter():
                     twitter_client.create_tweet(text=status)
                     print(f"✅ Berhasil posting: {title}")
                     tandai_sudah_diposting(link)
-                    return
+                    return # Stop setelah 1 berita berhasil diposting
                 except Exception as e:
                     print(f"❌ Gagal posting: {e}")
 
