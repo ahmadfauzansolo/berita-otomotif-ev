@@ -73,7 +73,7 @@ def ambil_berita(keyword):
         return []
 
 def post_berita_ke_twitter():
-    random.shuffle(all_keywords)
+    random.shuffle(all_keywords)  # Acak urutan keyword
     for keyword in all_keywords:
         print(f"🔎 Mencari berita untuk keyword: {keyword}")
         berita_list = ambil_berita(keyword)
@@ -101,9 +101,11 @@ def post_berita_ke_twitter():
                     twitter_client.create_tweet(text=status)
                     print(f"✅ Berhasil posting: {title}")
                     tandai_sudah_diposting(link)
-                    return # Stop setelah 1 berita berhasil diposting
+                    return  # 🚨 STOP setelah berhasil posting 1 berita
                 except Exception as e:
                     print(f"❌ Gagal posting: {e}")
+                    return  # Stop jika error juga
+    print("❌ Tidak ada berita relevan yang bisa diposting kali ini.")
 
 # === Loop otomatis posting setiap 90 menit ===
 def loop_otomatis():
