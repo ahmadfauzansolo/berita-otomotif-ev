@@ -2,9 +2,7 @@ import os
 import requests
 import time
 import random
-import threading
 from dotenv import load_dotenv
-from flask import Flask, render_template_string
 import tweepy
 
 # Load .env
@@ -25,7 +23,7 @@ twitter_client = tweepy.Client(
     access_token_secret=ACCESS_SECRET
 )
 
-# Keyword list
+# Keyword list (sama seperti sebelumnya)
 keywords = [
     "motor listrik", "kendaraan listrik", "EV", "mobil listrik", "baterai mobil",
     "baterai motor", "konversi motor listrik", "charging station", "skutik listrik",
@@ -41,14 +39,17 @@ brands = [
 
 all_keywords = keywords + brands
 
-# Posted link file
 posted_links_file = "posted_links.txt"
 if not os.path.exists(posted_links_file):
     open(posted_links_file, "w").close()
 
 def sudah_diposting(link):
-    with open(posted_links_file, "r") as f:
-        return link.strip() in f.read()
+    try:
+        with open(posted_links_file, "r") as f:
+            posted = set(line.strip() for line in f if line.strip())
+            return link.strip() in posted
+    except FileNotFoundError:
+        return False
 
 def tandai_sudah_diposting(link):
     with open(posted_links_file, "a") as f:
@@ -65,7 +66,7 @@ def ambil_berita(keyword):
             f"https://newsdata.io/api/1/news?apikey={NEWS_API_KEY}"
             f"&q={keyword}&language=id&country=id"
         )
-        response = requests.get(url)
+        response = requests.get(url, timeout=20)
         data = response.json()
         return data.get("results", [])
     except Exception as e:
@@ -73,7 +74,7 @@ def ambil_berita(keyword):
         return []
 
 def post_berita_ke_twitter():
-    random.shuffle(all_keywords)  # Acak urutan keyword
+    random.shuffle(all_keywords)
     for keyword in all_keywords:
         print(f"🔎 Mencari berita untuk keyword: {keyword}")
         berita_list = ambil_berita(keyword)
@@ -101,75 +102,12 @@ def post_berita_ke_twitter():
                     twitter_client.create_tweet(text=status)
                     print(f"✅ Berhasil posting: {title}")
                     tandai_sudah_diposting(link)
-                    return  # 🚨 STOP setelah berhasil posting 1 berita
+                    return  # STOP setelah berhasil posting 1 berita
                 except Exception as e:
                     print(f"❌ Gagal posting: {e}")
-                    return  # Stop jika error juga
+                    return
     print("❌ Tidak ada berita relevan yang bisa diposting kali ini.")
 
-# === Loop otomatis posting setiap 90 menit ===
-def loop_otomatis():
-    while True:
-        print("🔄 Mengecek dan posting berita...")
-        post_berita_ke_twitter()
-        print("🕒 Menunggu 90 menit...")
-        for i in range(90):  # 90 menit
-            print(f"⏳ Menit ke-{i+1} dari 90")
-            time.sleep(60)
-
-threading.Thread(target=loop_otomatis, daemon=True).start()
-
-# === Web server ===
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return """
-    <html>
-        <head>
-            <title>Twitter Bot Status</title>
-            <style>
-                body {
-                    background-color: #f0f4f8;
-                    font-family: Arial, sans-serif;
-                    text-align: center;
-                    padding-top: 100px;
-                    color: #333;
-                }
-                .container {
-                    background: white;
-                    display: inline-block;
-                    padding: 30px;
-                    border-radius: 12px;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                }
-                h1 {
-                    color: #2c3e50;
-                }
-                p {
-                    font-size: 18px;
-                }
-                .emoji {
-                    font-size: 50px;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="emoji">🤖⚡</div>
-                <h1>Twitter Bot: Pak bNdotzz KLAYABAN</h1>
-                <p>Status: <strong style="color:green;">Online & Berjalan</strong></p>
-                <p>Auto-post berita motor listrik setiap 1,5 jam</p>
-                <p>⏰ Terakhir update: <span id="waktu"></span></p>
-            </div>
-            <script>
-                const waktu = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
-                document.getElementById("waktu").innerText = waktu;
-            </script>
-        </body>
-    </html>
-    """
-
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    print("🔄 Menjalankan 1x job posting...")
+    post_berita_ke_twitter()
