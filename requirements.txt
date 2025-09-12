@@ -1,6 +1,3 @@
 tweepy
 requests
-schedule
 python-dotenv
-flask
-feedparser
