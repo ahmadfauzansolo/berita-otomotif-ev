@@ -1,1 +1,8 @@
+services:
+  - type: cron
+    name: twitter-bot-cron
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    schedule: "0 */4 * * *"   # setiap 4 jam: 00,04,08,12,16,20
 
