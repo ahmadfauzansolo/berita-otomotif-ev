@@ -5,25 +5,30 @@ from dotenv import load_dotenv
 import tweepy
 import sys
 
-# Load .env
+# ==============================
+# LOAD ENV
+# ==============================
 load_dotenv()
 
-# Twitter API Keys
-API_KEY = os.getenv("TWITTER_API_KEY")
-API_SECRET = os.getenv("TWITTER_API_SECRET")
+TWITTER_API_KEY = os.getenv("TWITTER_API_KEY")
+TWITTER_API_SECRET = os.getenv("TWITTER_API_SECRET")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 ACCESS_SECRET = os.getenv("ACCESS_SECRET")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
-# Twitter Auth
+# ==============================
+# TWITTER AUTH
+# ==============================
 twitter_client = tweepy.Client(
-    consumer_key=API_KEY,
-    consumer_secret=API_SECRET,
+    consumer_key=TWITTER_API_KEY,
+    consumer_secret=TWITTER_API_SECRET,
     access_token=ACCESS_TOKEN,
     access_token_secret=ACCESS_SECRET
 )
 
-# Keyword list
+# ==============================
+# KEYWORDS & BRANDS
+# ==============================
 keywords = [
     "motor listrik", "kendaraan listrik", "EV", "mobil listrik", "baterai mobil",
     "baterai motor", "konversi motor listrik", "charging station", "skutik listrik",
@@ -39,7 +44,9 @@ brands = [
 
 all_keywords = keywords + brands
 
-# Posted link file
+# ==============================
+# FILE UNTUK LINK YANG SUDAH DIPOSTING
+# ==============================
 posted_links_file = "posted_links.txt"
 if not os.path.exists(posted_links_file):
     open(posted_links_file, "w").close()
@@ -52,11 +59,17 @@ def tandai_sudah_diposting(link):
     with open(posted_links_file, "a") as f:
         f.write(link.strip() + "\n")
 
+# ==============================
+# CEK RELEVANSI
+# ==============================
 def is_relevant(title, content):
     combined = (title or "") + " " + (content or "")
     combined = combined.lower()
     return any(kw.lower() in combined for kw in all_keywords)
 
+# ==============================
+# AMBIL BERITA DARI NEWSDATA.IO
+# ==============================
 def ambil_berita(keyword):
     try:
         url = (
@@ -70,5 +83,33 @@ def ambil_berita(keyword):
         print("❌ Gagal ambil berita:", e, file=sys.stderr)
         return []
 
+# ==============================
+# POST BERITA KE TWITTER
+# ==============================
 def post_berita_ke_twitter():
-    random.shuff
+    random.shuffle(all_keywords)
+    for kw in all_keywords:
+        berita_list = ambil_berita(kw)
+        if not berita_list:
+            continue
+        for berita in berita_list:
+            link = berita.get("link")
+            title = berita.get("title")
+            content = berita.get("description") or berita.get("content")
+            if not link or sudah_diposting(link):
+                continue
+            if is_relevant(title, content):
+                try:
+                    tweet_text = f"{title}\n{link}"
+                    twitter_client.create_tweet(text=tweet_text)
+                    tandai_sudah_diposting(link)
+                    print("✅ Berhasil post:", title)
+                    return  # hanya post 1 berita per run
+                except Exception as e:
+                    print("❌ Gagal post:", e, file=sys.stderr)
+
+# ==============================
+# MAIN
+# ==============================
+if __name__ == "__main__":
+    post_berita_ke_twitter()
