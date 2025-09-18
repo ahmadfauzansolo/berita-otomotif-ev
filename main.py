@@ -4,6 +4,7 @@ import random
 from dotenv import load_dotenv
 import tweepy
 import sys
+import traceback
 
 # ==============================
 # LOAD ENV
@@ -23,26 +24,20 @@ twitter_client = tweepy.Client(
     consumer_key=TWITTER_API_KEY,
     consumer_secret=TWITTER_API_SECRET,
     access_token=ACCESS_TOKEN,
-    access_token_secret=ACCESS_SECRET
+    access_token_secret=ACCESS_SECRET,
+    wait_on_rate_limit=True
 )
 
 # ==============================
-# KEYWORDS & BRANDS
+# KEYWORDS
 # ==============================
 keywords = [
-    "motor listrik", "kendaraan listrik", "EV", "mobil listrik", "baterai mobil",
-    "baterai motor", "konversi motor listrik", "charging station", "skutik listrik",
-    "subsidi motor listrik", "sepeda listrik", "BLDC", "dinamo motor",
-    "baterai lithium-ion", "Electric Vehicle", "baterai SLA", "Elon Musk"
+    "mobil listrik",
+    "motor listrik",
+    "kendaraan listrik"
 ]
 
-brands = [
-    "Gesits", "Viar", "Selis", "Volta", "Alva", "Polytron", "Smoot", "Rakata", "Yadea", "United",
-    "Honda EM1", "Yamaha E01", "NIU", "Treeletrik", "Uwinfly", "Italjet", "Sunra", "Evoseed",
-    "BF Goodrich", "Elvindo", "U-Winfly"
-]
-
-all_keywords = keywords + brands
+all_keywords = keywords
 
 # ==============================
 # FILE UNTUK LINK YANG SUDAH DIPOSTING
@@ -78,7 +73,9 @@ def ambil_berita(keyword):
         )
         response = requests.get(url)
         data = response.json()
-        return data.get("results", [])
+        results = data.get("results", [])
+        print(f"🔎 {keyword}: {len(results)} berita ditemukan")
+        return results
     except Exception as e:
         print("❌ Gagal ambil berita:", e, file=sys.stderr)
         return []
@@ -107,6 +104,7 @@ def post_berita_ke_twitter():
                     return  # hanya post 1 berita per run
                 except Exception as e:
                     print("❌ Gagal post:", e, file=sys.stderr)
+                    traceback.print_exc()
 
 # ==============================
 # MAIN
