@@ -105,9 +105,11 @@ def post_berita_ke_twitter():
                 except Exception as e:
                     print("❌ Gagal post:", e, file=sys.stderr)
                     traceback.print_exc()
+    print("⚠️ Tidak ada berita relevan untuk diposting kali ini.")
 
 # ==============================
 # MAIN
 # ==============================
 if __name__ == "__main__":
+    print("🚀 Script dijalankan")
     post_berita_ke_twitter()
