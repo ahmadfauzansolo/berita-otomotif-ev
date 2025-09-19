@@ -4,7 +4,6 @@ import random
 from dotenv import load_dotenv
 import tweepy
 import sys
-import traceback
 
 # ==============================
 # LOAD ENV
@@ -24,20 +23,17 @@ twitter_client = tweepy.Client(
     consumer_key=TWITTER_API_KEY,
     consumer_secret=TWITTER_API_SECRET,
     access_token=ACCESS_TOKEN,
-    access_token_secret=ACCESS_SECRET,
-    wait_on_rate_limit=True
+    access_token_secret=ACCESS_SECRET
 )
 
 # ==============================
 # KEYWORDS
 # ==============================
-keywords = [
+all_keywords = [
     "mobil listrik",
     "motor listrik",
     "kendaraan listrik"
 ]
-
-all_keywords = keywords
 
 # ==============================
 # FILE UNTUK LINK YANG SUDAH DIPOSTING
@@ -73,9 +69,7 @@ def ambil_berita(keyword):
         )
         response = requests.get(url)
         data = response.json()
-        results = data.get("results", [])
-        print(f"🔎 {keyword}: {len(results)} berita ditemukan")
-        return results
+        return data.get("results", [])
     except Exception as e:
         print("❌ Gagal ambil berita:", e, file=sys.stderr)
         return []
@@ -84,28 +78,40 @@ def ambil_berita(keyword):
 # POST BERITA KE TWITTER
 # ==============================
 def post_berita_ke_twitter():
+    total_post = 0
     random.shuffle(all_keywords)
+
     for kw in all_keywords:
         berita_list = ambil_berita(kw)
+        print(f"🔎 {kw}: {len(berita_list)} berita ditemukan")
+
         if not berita_list:
             continue
+
         for berita in berita_list:
+            # ✅ pastikan format berita benar (dict)
+            if not isinstance(berita, dict):
+                print(f"⚠️ Data berita tidak valid: {berita}")
+                continue
+
             link = berita.get("link")
             title = berita.get("title")
             content = berita.get("description") or berita.get("content")
+
             if not link or sudah_diposting(link):
                 continue
+
             if is_relevant(title, content):
                 try:
                     tweet_text = f"{title}\n{link}"
                     twitter_client.create_tweet(text=tweet_text)
                     tandai_sudah_diposting(link)
-                    print("✅ Berhasil post:", title)
-                    return  # hanya post 1 berita per run
+                    total_post += 1
+                    print(f"✅ Berhasil post: {title}")
                 except Exception as e:
                     print("❌ Gagal post:", e, file=sys.stderr)
-                    traceback.print_exc()
-    print("⚠️ Tidak ada berita relevan untuk diposting kali ini.")
+
+    print(f"📢 Total {total_post} berita diposting kali ini")
 
 # ==============================
 # MAIN
