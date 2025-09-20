@@ -13,15 +13,15 @@ keywords = ["mobil listrik", "motor listrik", "kendaraan listrik"]
 # ==============================
 TWITTER_API_KEY = os.getenv("TWITTER_API_KEY")
 TWITTER_API_SECRET = os.getenv("TWITTER_API_SECRET")
-ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
-ACCESS_SECRET = os.getenv("ACCESS_SECRET")
+ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
+ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
 
 missing_keys = []
 for name, val in [
     ("TWITTER_API_KEY", TWITTER_API_KEY),
     ("TWITTER_API_SECRET", TWITTER_API_SECRET),
-    ("ACCESS_TOKEN", ACCESS_TOKEN),
-    ("ACCESS_SECRET", ACCESS_SECRET)
+    ("TWITTER_ACCESS_TOKEN", ACCESS_TOKEN),
+    ("TWITTER_ACCESS_SECRET", ACCESS_SECRET)
 ]:
     if not val:
         missing_keys.append(name)
