@@ -1,6 +1,7 @@
 import os
 import requests
 import tweepy
+import time
 from datetime import datetime
 
 # ==============================
@@ -73,6 +74,16 @@ def log_posted_news(title, link):
         f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {title} | {link}\n")
 
 # ==============================
+# LOG DUPLICATE ERROR
+# ==============================
+duplicate_log_file = "duplicate_errors.log"
+
+def log_duplicate_error(title, link):
+    with open(duplicate_log_file, "a") as f:
+        f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - DUPLICATE: {title} | {link}\n")
+    print(f"⚠️ Duplicate tercatat: {title}")
+
+# ==============================
 # CEK RELEVANSI
 # ==============================
 def is_relevant(title, content):
@@ -140,8 +151,14 @@ def post_berita_ke_twitter():
                     tandai_sudah_diposting(link)
                     log_posted_news(title, link)
                     print(f"✅ Berhasil post: {title}")
+                    time.sleep(10)  # delay antar posting
                 except Exception as e:
-                    print("⚠️ Gagal posting:", e)
+                    err_str = str(e)
+                    print("⚠️ Gagal posting:", err_str)
+                    # Catat duplicate dan tandai supaya tidak diulang
+                    if "duplicate" in err_str.lower():
+                        log_duplicate_error(title, link)
+                        tandai_sudah_diposting(link)
             else:
                 print(f"ℹ️ Skip posting karena Twitter API key hilang: {title}")
 
