@@ -55,33 +55,31 @@ def tandai_sudah_diposting(link):
         f.write(link.strip() + "\n")
 
 # ==============================
-# LOG QUOTA EXCEEDED
+# LOGGING FILES
 # ==============================
 quota_log_file = "quota_errors.log"
+posted_log_file = "posted_log.log"
+duplicate_log_file = "duplicate_errors.log"
+rate_limit_log_file = "rate_limit_errors.log"
 
 def log_quota_exceeded(keyword):
     with open(quota_log_file, "a") as f:
         f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Quota exceeded untuk keyword '{keyword}'\n")
     print(f"⚠️ Quota exceeded tercatat untuk '{keyword}'")
 
-# ==============================
-# LOG POSTING BERITA
-# ==============================
-posted_log_file = "posted_log.log"
-
 def log_posted_news(title, link):
     with open(posted_log_file, "a") as f:
         f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {title} | {link}\n")
-
-# ==============================
-# LOG DUPLICATE ERROR
-# ==============================
-duplicate_log_file = "duplicate_errors.log"
 
 def log_duplicate_error(title, link):
     with open(duplicate_log_file, "a") as f:
         f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - DUPLICATE: {title} | {link}\n")
     print(f"⚠️ Duplicate tercatat: {title}")
+
+def log_rate_limit_error(title, link):
+    with open(rate_limit_log_file, "a") as f:
+        f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - RATE LIMIT: {title} | {link}\n")
+    print(f"⚠️ Rate limit tercatat: {title}")
 
 # ==============================
 # CEK RELEVANSI
@@ -106,7 +104,6 @@ def ambil_berita(keyword):
         return []
 
     if isinstance(data, dict) and data.get("status") == "error":
-        # Catat quota exceeded
         if "quota" in str(data).lower() or "exceeded" in str(data).lower():
             log_quota_exceeded(keyword)
         else:
@@ -123,13 +120,21 @@ def ambil_berita(keyword):
 # ==============================
 # POST BERITA KE TWITTER
 # ==============================
+MAX_POSTS_PER_RUN = 5       # batasi posting per eksekusi cron
+DELAY_BETWEEN_POSTS = 30    # delay antar posting (detik)
+
 def post_berita_ke_twitter():
     total_posted = 0
     print(f"🚀 Script dijalankan - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     for kw in keywords:
+        if total_posted >= MAX_POSTS_PER_RUN:
+            break  # stop jika sudah mencapai limit per run
         berita_list = ambil_berita(kw)
         print(f"🔎 {kw}: {len(berita_list)} berita ditemukan")
         for berita in berita_list:
+            if total_posted >= MAX_POSTS_PER_RUN:
+                break
+
             title = berita.get("title")
             link = berita.get("link")
             content = berita.get("description") or berita.get("content")
@@ -151,14 +156,16 @@ def post_berita_ke_twitter():
                     tandai_sudah_diposting(link)
                     log_posted_news(title, link)
                     print(f"✅ Berhasil post: {title}")
-                    time.sleep(10)  # delay antar posting
+                    time.sleep(DELAY_BETWEEN_POSTS)
                 except Exception as e:
                     err_str = str(e)
                     print("⚠️ Gagal posting:", err_str)
-                    # Catat duplicate dan tandai supaya tidak diulang
                     if "duplicate" in err_str.lower():
                         log_duplicate_error(title, link)
-                        tandai_sudah_diposting(link)
+                        tandai_sudah_diposting(link)  # supaya tidak diulang
+                    elif "429" in err_str or "Too Many Requests" in err_str:
+                        log_rate_limit_error(title, link)
+                        # JANGAN tandai posted → biar bisa dicoba ulang di run berikutnya
             else:
                 print(f"ℹ️ Skip posting karena Twitter API key hilang: {title}")
 
