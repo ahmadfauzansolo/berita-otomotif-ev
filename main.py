@@ -46,13 +46,20 @@ posted_links_file = "posted_links.txt"
 if not os.path.exists(posted_links_file):
     open(posted_links_file, "w").close()
 
+def normalize_link(link):
+    """Samakan format link supaya tidak terdeteksi berbeda"""
+    return (link or "").strip().split("?")[0].rstrip("/")
+
 def sudah_diposting(link):
+    link = normalize_link(link)
     with open(posted_links_file, "r") as f:
-        return link.strip() in f.read()
+        posted = [normalize_link(l) for l in f.readlines()]
+    return link in posted
 
 def tandai_sudah_diposting(link):
+    link = normalize_link(link)
     with open(posted_links_file, "a") as f:
-        f.write(link.strip() + "\n")
+        f.write(link + "\n")
 
 # ==============================
 # LOGGING FILES
@@ -64,22 +71,22 @@ rate_limit_log_file = "rate_limit_errors.log"
 
 def log_quota_exceeded(keyword):
     with open(quota_log_file, "a") as f:
-        f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Quota exceeded untuk keyword '{keyword}'\n")
-    print(f"⚠️ Quota exceeded tercatat untuk '{keyword}'")
+        f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} - Quota exceeded untuk keyword '{keyword}'\n")
+    print(f"⚠️ [QUOTA] Limit NewsData untuk '{keyword}'")
 
 def log_posted_news(title, link):
     with open(posted_log_file, "a") as f:
-        f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {title} | {link}\n")
+        f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} - {title} | {link}\n")
 
 def log_duplicate_error(title, link):
     with open(duplicate_log_file, "a") as f:
-        f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - DUPLICATE: {title} | {link}\n")
-    print(f"⚠️ Duplicate tercatat: {title}")
+        f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} - DUPLICATE: {title} | {link}\n")
+    print(f"⚠️ [DUPLICATE] {title}")
 
 def log_rate_limit_error(title, link):
     with open(rate_limit_log_file, "a") as f:
-        f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - RATE LIMIT: {title} | {link}\n")
-    print(f"⚠️ Rate limit tercatat: {title}")
+        f.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} - RATE LIMIT: {title} | {link}\n")
+    print(f"⚠️ [RATE LIMIT] {title}")
 
 # ==============================
 # CEK RELEVANSI
@@ -100,19 +107,19 @@ def ambil_berita(keyword):
         response = requests.get(url)
         data = response.json()
     except Exception as e:
-        print("❌ Gagal ambil berita:", e)
+        print("❌ [FETCH ERROR]", e)
         return []
 
     if isinstance(data, dict) and data.get("status") == "error":
         if "quota" in str(data).lower() or "exceeded" in str(data).lower():
             log_quota_exceeded(keyword)
         else:
-            print(f"⚠️ Data berita tidak valid untuk keyword '{keyword}': {data.get('message', 'unknown error')}")
+            print(f"⚠️ [INVALID] Data berita '{keyword}': {data.get('message', 'unknown error')}")
         return []
 
     results = data.get("results", [])
     if not isinstance(results, list):
-        print(f"⚠️ Data berita tidak valid, results bukan list: {results}")
+        print(f"⚠️ [INVALID] Hasil bukan list: {results}")
         return []
 
     return results
@@ -125,10 +132,10 @@ DELAY_BETWEEN_POSTS = 30    # delay antar posting (detik)
 
 def post_berita_ke_twitter():
     total_posted = 0
-    print(f"🚀 Script dijalankan - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"\n🚀 Script dijalankan - {datetime.now():%Y-%m-%d %H:%M:%S}")
     for kw in keywords:
         if total_posted >= MAX_POSTS_PER_RUN:
-            break  # stop jika sudah mencapai limit per run
+            break
         berita_list = ambil_berita(kw)
         print(f"🔎 {kw}: {len(berita_list)} berita ditemukan")
         for berita in berita_list:
@@ -140,13 +147,15 @@ def post_berita_ke_twitter():
             content = berita.get("description") or berita.get("content")
 
             if not title or not link:
-                print("⚠️ Data berita tidak valid")
+                print("⚠️ [SKIP] Data berita tidak valid")
                 continue
 
             if sudah_diposting(link):
+                print(f"⏭️ [SKIP] Sudah pernah diposting: {title}")
                 continue
 
             if not is_relevant(title, content):
+                print(f"⏭️ [SKIP] Tidak relevan: {title}")
                 continue
 
             if can_post:
@@ -155,21 +164,20 @@ def post_berita_ke_twitter():
                     total_posted += 1
                     tandai_sudah_diposting(link)
                     log_posted_news(title, link)
-                    print(f"✅ Berhasil post: {title}")
+                    print(f"✅ [POSTED] {title}")
                     time.sleep(DELAY_BETWEEN_POSTS)
                 except Exception as e:
                     err_str = str(e)
-                    print("⚠️ Gagal posting:", err_str)
+                    print("⚠️ [ERROR]", err_str)
                     if "duplicate" in err_str.lower():
                         log_duplicate_error(title, link)
-                        tandai_sudah_diposting(link)  # supaya tidak diulang
+                        tandai_sudah_diposting(link)  # supaya tidak diulang lagi
                     elif "429" in err_str or "Too Many Requests" in err_str:
                         log_rate_limit_error(title, link)
-                        # JANGAN tandai posted → biar bisa dicoba ulang di run berikutnya
             else:
-                print(f"ℹ️ Skip posting karena Twitter API key hilang: {title}")
+                print(f"ℹ️ [SKIP] Twitter API key hilang: {title}")
 
-    print(f"📢 Total {total_posted} berita diposting kali ini")
+    print(f"📢 Total {total_posted} berita diposting kali ini\n")
 
 # ==============================
 # MAIN
