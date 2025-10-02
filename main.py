@@ -40,6 +40,28 @@ else:
     )
 
 # ==============================
+# TELEGRAM BOT
+# ==============================
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHANNEL_ID = os.getenv("TELEGRAM_CHANNEL_ID")  # contoh: "@namachannel" atau chat_id numerik
+
+def send_to_telegram(title, link):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHANNEL_ID:
+        return  # kalau env belum diset, abaikan saja
+
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {
+            "chat_id": TELEGRAM_CHANNEL_ID,
+            "text": f"✅ Berhasil diposting ke Twitter:\n\n{title}\n{link}",
+            "disable_web_page_preview": False
+        }
+        requests.post(url, data=payload, timeout=10)
+        print(f"📩 [TELEGRAM] Terkirim: {title}")
+    except Exception as e:
+        print("⚠️ [TELEGRAM ERROR]", e)
+
+# ==============================
 # FILE UNTUK LINK SUDAH DIPOSTING
 # ==============================
 posted_links_file = "posted_links.txt"
@@ -165,6 +187,10 @@ def post_berita_ke_twitter():
                     tandai_sudah_diposting(link)
                     log_posted_news(title, link)
                     print(f"✅ [POSTED] {title}")
+
+                    # Kirim ke Telegram setelah sukses ke Twitter
+                    send_to_telegram(title, link)
+
                     time.sleep(DELAY_BETWEEN_POSTS)
                 except Exception as e:
                     err_str = str(e)
